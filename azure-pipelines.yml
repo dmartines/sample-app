@@ -1,0 +1,90 @@
+# azure-pipelines.yml
+trigger:
+- main # This pipeline will run automatically on every push to the 'main' branch
+
+variables:
+  # --- Azure Container Registry (ACR) Details ---
+  # IMPORTANT: Replace 'YOUR_ACR_SERVICE_CONNECTION_NAME' with the name of the Docker Registry service connection you create in Azure DevOps.
+  # This connection needs permissions to push to your ACR.
+  acrServiceConnection: 'scjdemoregistry-connection' # Example: Name of your Docker Registry Service Connection
+  
+  # Replace 'scjdemoregistry' with your actual ACR name (from the image: scjdemoregistry.azurecr.io)
+  acrName: 'scjdemoregistry' 
+  
+  # Image names for your repositories within ACR
+  imageRepositoryFrontend: 'frontend'
+  imageRepositoryBackend: 'backend'
+  
+  # Paths to your Dockerfiles relative to the root of your repository
+  dockerfilePathFrontend: 'frontend/Dockerfile' # Corrected path (no $(Build.SourcesDirectory) needed if relative to repo root)
+  dockerfilePathBackend: 'backend/Dockerfile'   # Corrected path
+
+  # Tag for your Docker images. Using BuildId for unique tags, and 'latest' for easy deployment.
+  tag: '$(Build.BuildId)' 
+
+  # --- Azure App Service Details ---
+  # IMPORTANT: Replace 'YOUR_AZURE_SERVICE_CONNECTION_NAME' with the name of the Azure Resource Manager service connection you create in Azure DevOps.
+  # This connection needs permissions to deploy to your App Service.
+  azureSubscription: 'AzureSubscriptionServiceConnection' # Example: Name of your Azure Resource Manager Service Connection
+  
+  # Replace 'your-app-service-name' with the actual name of your Azure App Service.
+  webAppName: 'scj-demo-app-web' # Example: Your App Service name
+  
+  # Replace 'your-resource-group' with the resource group where your App Service resides.
+  resourceGroup: 'scj-johnson-demo-app' # Example: Your Resource Group name
+
+pool:
+  vmImage: 'ubuntu-latest' # Use a Microsoft-hosted agent running Ubuntu
+
+stages:
+- stage: BuildAndPush
+  displayName: 'Build and Push Docker Images to ACR'
+  jobs:
+  - job: Build
+    displayName: 'Build and Push Images'
+    steps:
+    - task: Docker@2
+      displayName: 'Build and Push Frontend Image'
+      inputs:
+        command: 'buildAndPush'
+        repository: '$(imageRepositoryFrontend)'
+        dockerfile: '$(dockerfilePathFrontend)'
+        containerRegistry: '$(acrServiceConnection)'
+        # Push two tags: a unique build ID tag and 'latest' for easy App Service picking
+        tags: |
+          $(tag)
+          latest 
+
+    - task: Docker@2
+      displayName: 'Build and Push Backend Image'
+      inputs:
+        command: 'buildAndPush'
+        repository: '$(imageRepositoryBackend)'
+        dockerfile: '$(dockerfilePathBackend)'
+        containerRegistry: '$(acrServiceConnection)'
+        # Push two tags: a unique build ID tag and 'latest' for easy App Service picking
+        tags: |
+          $(tag)
+          latest 
+
+- stage: Deploy
+  displayName: 'Deploy to Azure App Service'
+  dependsOn: BuildAndPush # This stage runs only after BuildAndPush stage completes successfully
+  jobs:
+  - job: DeployApp
+    displayName: 'Deploy Web App'
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Restart App Service to Pull Latest Images'
+      inputs:
+        azureSubscription: '$(azureSubscription)' # Uses the Azure Resource Manager Service Connection
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          echo "Restarting Azure App Service '$(webAppName)' in resource group '$(resourceGroup)'..."
+          # This command signals App Service to restart.
+          # If your App Service's Docker Compose configuration references images like
+          # 'youracrname.azurecr.io/frontend:latest' and 'youracrname.azurecr.io/backend:latest',
+          # App Service will automatically pull the newly pushed 'latest' images on restart.
+          az webapp restart --name $(webAppName) --resource-group $(resourceGroup)
+          echo "App Service restart initiated. It should now pull the latest container images from ACR."

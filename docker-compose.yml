@@ -2,22 +2,26 @@ version: '3.8'
 
 services:
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: scjdemoregistry.azurecr.io/frontend:latest # <--- ADD THIS LINE
+    # build: # <--- REMOVE OR COMMENT OUT THIS BLOCK FOR DEPLOYMENT
+    #   context: ./frontend
+    #   dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "80:3000"
     environment:
       - NODE_ENV=production
+      - REACT_APP_BACKEND_URL=http://backend:5001
     depends_on:
       - backend
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: scjdemoregistry.azurecr.io/backend:latest # <--- ADD THIS LINE
+    # build: # <--- REMOVE OR COMMENT OUT THIS BLOCK FOR DEPLOYMENT
+    #   context: ./backend
+    #   dockerfile: Dockerfile
     ports:
       - "5001:5001"
     environment:
-      - FLASK_ENV=development
-      - FLASK_APP=app.py 
+      - FLASK_ENV=production # Ensure this is production
+      - FLASK_APP=app.py
+      # - DATABASE_URL=... (for later)

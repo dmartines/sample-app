@@ -1,3 +1,16 @@
 fastapi==0.110.0
 uvicorn==0.27.1
-python-dotenv==1.0.1 
+python-dotenv==1.0.1
+
+# Azure SDK packages
+azure-storage-blob==12.19.0
+azure-keyvault-secrets==4.8.0
+azure-identity==1.15.0
+azure-mgmt-resource==23.0.1
+azure-mgmt-storage==21.1.0
+azure-core>=1.31.0
+
+# Azure Container and Kubernetes packages
+azure-mgmt-containerregistry==10.3.0
+azure-mgmt-containerservice==36.0.0
+azure-containerregistry==1.2.0
